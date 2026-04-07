@@ -16,7 +16,7 @@
   --text: #f4f1ec;
   --muted: rgba(244,241,236,0.50);
   --danger: #e07070;
-  --blur: blur(22px);
+  --blur: blur(28px);
   --shadow: 0 8px 32px rgba(0,0,0,0.40), 0 1px 0 rgba(255,255,255,0.08) inset;
 }
 * { margin:0; padding:0; box-sizing:border-box; }
@@ -44,7 +44,7 @@ html, body {
 
 /* ── GLASS TILE ── */
 .tile {
-  background: var(--glass);
+  background: rgba(15,15,25,0.52);
   border: 1px solid var(--border);
   border-radius: 24px;
   backdrop-filter: var(--blur);
@@ -53,7 +53,10 @@ html, body {
   overflow: hidden;
 }
 .tile * {
-  text-shadow: 0 1px 6px rgba(0,0,0,0.95), 0 0 12px rgba(0,0,0,0.8);
+  text-shadow: 
+    0 0 8px rgba(0,0,0,1),
+    0 1px 3px rgba(0,0,0,1),
+    0 0 20px rgba(0,0,0,0.8);
 }
 
 /* ══ LANDSCAPE GRID ══ */
