@@ -32,14 +32,12 @@ html, body {
 
 /* ── BACKGROUND ── */
 #bg-slideshow { position:fixed; inset:0; z-index:0; }
-#bg-slideshow img {
-  position:absolute; inset:0; width:100%; height:100%;
-  object-fit:cover; opacity:0; transition:opacity 2.5s ease;
-}
-#bg-slideshow img.active { opacity:1; }
+#bg-slideshow img { display:none; }
 #bg-overlay {
   position:absolute; inset:0;
-  background: linear-gradient(160deg, rgba(13,13,20,0.60) 0%, rgba(13,13,20,0.30) 50%, rgba(13,13,20,0.60) 100%);
+  background: var(--user-bg, linear-gradient(135deg, #0d0d1a 0%, #1a0a2e 50%, #0a1628 100%));
+  opacity: var(--user-bg-opacity, 1);
+  transition: background 0.5s ease;
 }
 
 /* ── GLASS TILE ── */
@@ -130,9 +128,9 @@ html, body {
 .fc-temp { font-size:11px; font-weight:500; color:var(--text); }
 .fc-temp span { font-size:10px; color:var(--muted); }
 
-/* PHOTO TILE — rechts, volle Höhe */
+/* PHOTO TILE — mitte oben */
 #tile-photos {
-  grid-column:3; grid-row:1/3;
+  grid-column:2; grid-row:1;
   position:relative; padding:0; cursor:pointer;
 }
 #tile-photos-inner { position:absolute; inset:0; }
@@ -200,9 +198,9 @@ html, body {
 .up-time { font-size:10px; color:var(--muted); margin-top:1px; }
 .no-events { color:var(--muted); font-size:12px; text-align:center; padding:12px 0; }
 
-/* CALENDAR — mitte oben */
+/* CALENDAR — rechts voll */
 #tile-calendar {
-  grid-column:2; grid-row:1;
+  grid-column:3; grid-row:1/3;
   display:flex; flex-direction:column;
   padding:16px 14px;
 }
@@ -481,6 +479,26 @@ html, body {
 <div class="modal-overlay" id="modal-settings">
   <div class="modal">
     <h2>Einstellungen</h2>
+
+    <div class="settings-section">
+      <h3>Hintergrund</h3>
+      <label>Farbe 1</label>
+      <input type="color" id="set-bg1" value="#0d0d1a">
+      <label>Farbe 2</label>
+      <input type="color" id="set-bg2" value="#1a0a2e">
+      <label>Richtung</label>
+      <select id="set-bg-dir" style="width:100%;background:rgba(255,255,255,0.06);border:1px solid var(--border-light);border-radius:12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;padding:10px 14px;outline:none;-webkit-appearance:none;">
+        <option value="135deg">Diagonal</option>
+        <option value="to bottom">Von oben nach unten</option>
+        <option value="to right">Von links nach rechts</option>
+        <option value="to bottom right">Diagonal rechts unten</option>
+      </select>
+      <label>Transparenz der Kacheln</label>
+      <input type="range" id="set-tile-opacity" min="20" max="90" value="52" style="width:100%;accent-color:var(--accent)">
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">
+        Weniger = mehr transparent · Mehr = dunkler
+      </div>
+    </div>
 
     <div class="settings-section">
       <h3>Wetter API</h3>
@@ -796,6 +814,10 @@ function openSettings(){
   document.getElementById('set-gcal').value=state.gcalUrl||'';
   document.getElementById('set-interval').value=state.interval||8;
   document.getElementById('set-gdrive-id').value=state.gdriveId||'';
+  document.getElementById('set-bg1').value=state.bgColor1||'#0d0d1a';
+  document.getElementById('set-bg2').value=state.bgColor2||'#1a0a2e';
+  document.getElementById('set-bg-dir').value=state.bgDir||'135deg';
+  document.getElementById('set-tile-opacity').value=state.tileOpacity||52;
   if(state.gdrivePhotos?.length)document.getElementById('gdrive-status').textContent=`✓ ${state.gdrivePhotos.length} Fotos aus Google Drive`;
   renderPhotoList();openModal('modal-settings');
 }
@@ -804,7 +826,25 @@ function saveSettings(){
   state.gcalUrl=document.getElementById('set-gcal').value.trim();
   state.interval=parseInt(document.getElementById('set-interval').value)||8;
   state.gdriveId=document.getElementById('set-gdrive-id').value.trim();
+  state.bgColor1=document.getElementById('set-bg1').value;
+  state.bgColor2=document.getElementById('set-bg2').value;
+  state.bgDir=document.getElementById('set-bg-dir').value;
+  state.tileOpacity=document.getElementById('set-tile-opacity').value;
+  applyBackground();
   saveState();fetchWeather();buildSlides();startSS();closeModal('modal-settings');
+}
+
+function applyBackground(){
+  const c1=state.bgColor1||'#0d0d1a';
+  const c2=state.bgColor2||'#1a0a2e';
+  const dir=state.bgDir||'135deg';
+  const op=state.tileOpacity||52;
+  document.getElementById('bg-overlay').style.background=`linear-gradient(${dir}, ${c1} 0%, ${c2} 100%)`;
+  // Kachel-Transparenz
+  const r=parseInt(op*2.55);
+  document.querySelectorAll('.tile').forEach(t=>{
+    t.style.background=`rgba(8,8,16,${op/100})`;
+  });
 }
 
 // PHOTOS
@@ -1127,6 +1167,7 @@ advance = function() {
 
 spInit();
 init();
+applyBackground();
 setTimeout(checkAdaptiveColor, 1000);
 </script>
 </body>
