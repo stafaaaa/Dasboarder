@@ -52,13 +52,16 @@ html, body {
   box-shadow: var(--shadow);
   overflow: hidden;
 }
+.tile * {
+  text-shadow: 0 1px 6px rgba(0,0,0,0.95), 0 0 12px rgba(0,0,0,0.8);
+}
 
 /* ══ LANDSCAPE GRID ══ */
 #app {
   position:relative; z-index:1;
   width:100vw; height:100vh;
   display:grid;
-  grid-template-columns: 1fr 1fr 300px;
+  grid-template-columns: 280px 280px 1fr;
   grid-template-rows: 1fr 1fr;
   gap:14px;
   padding:16px;
@@ -76,7 +79,7 @@ html, body {
   font-family:'Playfair Display',serif;
   font-size: clamp(50px, 6vw, 88px);
   font-weight:300; letter-spacing:-2px; line-height:1;
-  text-shadow:0 2px 8px rgba(0,0,0,0.9), 0 0 30px rgba(0,0,0,0.7);
+  text-shadow: 0 0 10px rgba(0,0,0,1), 0 2px 4px rgba(0,0,0,1), 1px 1px 0 rgba(0,0,0,0.8), -1px -1px 0 rgba(0,0,0,0.8);
 }
 #time-display .colon { color:var(--accent); animation:blink 1s step-end infinite; }
 #time-display .secs { font-size:0.34em; vertical-align:super; color:var(--muted); margin-left:4px; }
@@ -108,9 +111,25 @@ html, body {
 #weather-details { font-size:11px; color:var(--muted); }
 #weather-city { font-size:10px; color:var(--accent); letter-spacing:2.5px; text-transform:uppercase; margin-top:2px; }
 
-/* PHOTO TILE — top middle */
+/* 5-Tage Vorschau */
+#weather-forecast {
+  display:flex; gap:6px; margin-top:12px;
+  padding-top:10px; border-top:1px solid var(--border-light);
+}
+.fc-day {
+  flex:1; display:flex; flex-direction:column;
+  align-items:center; gap:3px;
+  background:rgba(255,255,255,0.05);
+  border-radius:10px; padding:6px 4px;
+}
+.fc-name { font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; }
+.fc-icon { font-size:18px; line-height:1; }
+.fc-temp { font-size:11px; font-weight:500; color:var(--text); }
+.fc-temp span { font-size:10px; color:var(--muted); }
+
+/* PHOTO TILE — rechts, volle Höhe */
 #tile-photos {
-  grid-column:2; grid-row:1;
+  grid-column:3; grid-row:1/3;
   position:relative; padding:0; cursor:pointer;
 }
 #tile-photos-inner { position:absolute; inset:0; }
@@ -140,11 +159,11 @@ html, body {
 }
 #tile-photos-empty span { font-size:34px; }
 
-/* UPCOMING — bottom middle */
+/* UPCOMING — mitte unten */
 #tile-upcoming {
   grid-column:2; grid-row:2;
   display:flex; flex-direction:column;
-  padding:18px 20px; overflow:hidden;
+  padding:14px 16px; overflow:hidden;
 }
 .section-header {
   display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;
@@ -178,11 +197,11 @@ html, body {
 .up-time { font-size:10px; color:var(--muted); margin-top:1px; }
 .no-events { color:var(--muted); font-size:12px; text-align:center; padding:12px 0; }
 
-/* CALENDAR — right full */
+/* CALENDAR — mitte oben */
 #tile-calendar {
-  grid-column:3; grid-row:1/3;
+  grid-column:2; grid-row:1;
   display:flex; flex-direction:column;
-  padding:20px 16px;
+  padding:16px 14px;
 }
 .cal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
 .cal-title { font-family:'Playfair Display',serif; font-size:17px; font-weight:400; }
@@ -210,9 +229,9 @@ html, body {
 .cal-day.today.has-event::after, .cal-day.selected.has-event::after { background:var(--bg); }
 
 #day-events-panel {
-  margin-top:12px; padding-top:12px;
+  margin-top:8px; padding-top:8px;
   border-top:1px solid var(--border-light);
-  overflow-y:auto; max-height:165px;
+  overflow-y:auto; max-height:100px;
 }
 #day-events-panel::-webkit-scrollbar { width:2px; }
 #day-events-panel::-webkit-scrollbar-thumb { background:var(--border); border-radius:1px; }
@@ -389,6 +408,7 @@ html, body {
         <div id="weather-city">DÜSSELDORF</div>
       </div>
     </div>
+    <div id="weather-forecast"></div>
   </div>
 
   <!-- PHOTOS -->
@@ -554,9 +574,12 @@ function clock() {
 }
 
 // WEATHER
+const DAYS_SHORT = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+
 async function fetchWeather() {
   if(!state.apiKey) return;
   try {
+    // Aktuelles Wetter
     const r=await fetch(`https://api.openweathermap.org/data/2.5/weather?q=Düsseldorf,DE&appid=${state.apiKey}&units=metric&lang=de`);
     const d=await r.json();
     if(d.cod!==200) return;
@@ -564,6 +587,37 @@ async function fetchWeather() {
     document.getElementById('weather-temp').innerHTML=`${Math.round(d.main.temp)}<sup>°</sup>`;
     document.getElementById('weather-desc').textContent=d.weather[0].description;
     document.getElementById('weather-details').textContent=`Luftf.: ${d.main.humidity}% · Wind: ${Math.round(d.wind.speed*3.6)} km/h`;
+
+    // 5-Tage Forecast
+    const f=await fetch(`https://api.openweathermap.org/data/2.5/forecast?q=Düsseldorf,DE&appid=${state.apiKey}&units=metric&lang=de&cnt=40`);
+    const fd=await f.json();
+    if(fd.cod!=='200') return;
+
+    // Einen Eintrag pro Tag (mittags 12:00)
+    const days = {};
+    fd.list.forEach(item => {
+      const date = new Date(item.dt * 1000);
+      const dateStr = date.toDateString();
+      const hour = date.getHours();
+      if (!days[dateStr] || Math.abs(hour - 12) < Math.abs(new Date(days[dateStr].dt*1000).getHours() - 12)) {
+        days[dateStr] = item;
+      }
+    });
+
+    const forecasts = Object.values(days).slice(0, 5);
+    const fc = document.getElementById('weather-forecast');
+    fc.innerHTML = forecasts.map(item => {
+      const date = new Date(item.dt * 1000);
+      const dayName = DAYS_SHORT[date.getDay()];
+      const icon = WI[item.weather[0].icon] || '🌤';
+      const temp = Math.round(item.main.temp);
+      const min = Math.round(item.main.temp_min);
+      return `<div class="fc-day">
+        <div class="fc-name">${dayName}</div>
+        <div class="fc-icon">${icon}</div>
+        <div class="fc-temp">${temp}°<span>/${min}°</span></div>
+      </div>`;
+    }).join('');
   } catch(e){ document.getElementById('weather-desc').textContent='Keine Verbindung'; }
 }
 
@@ -786,16 +840,42 @@ async function loadGDrive(){
   if(!id){alert('Bitte Ordner-ID eingeben.');return;}
   const status=document.getElementById('gdrive-status');
   status.textContent='⏳ Lade…';
-  try{
-    const proxy=`https://corsproxy.io/?${encodeURIComponent(`https://drive.google.com/embeddedfolderview?id=${id}#list`)}`;
-    const r=await fetch(proxy);const html=await r.text();
-    const matches=[...html.matchAll(/\/file\/d\/([a-zA-Z0-9_-]{25,})/g)];
-    const ids=[...new Set(matches.map(m=>m[1]))];
-    if(!ids.length){status.textContent='❌ Keine Bilder. Ordner öffentlich?';return;}
-    state.gdrivePhotos=ids.map(id=>`https://drive.google.com/thumbnail?id=${id}&sz=w1200`);
-    state.gdriveId=id;saveState();buildSlides();startSS();
-    status.textContent=`✓ ${ids.length} Fotos geladen!`;
-  }catch(e){status.textContent='❌ Fehler: '+e.message;}
+
+  // Methode 1: corsproxy
+  const tryFetch = async (proxyUrl) => {
+    const r = await fetch(proxyUrl);
+    const html = await r.text();
+    const matches = [...html.matchAll(/\/file\/d\/([a-zA-Z0-9_-]{25,})/g)];
+    return [...new Set(matches.map(m=>m[1]))];
+  };
+
+  let ids = [];
+  const folderUrl = `https://drive.google.com/embeddedfolderview?id=${id}#list`;
+  
+  try {
+    ids = await tryFetch(`https://corsproxy.io/?${encodeURIComponent(folderUrl)}`);
+  } catch(e) {}
+  
+  if (!ids.length) {
+    try {
+      ids = await tryFetch(`https://api.allorigins.win/get?url=${encodeURIComponent(folderUrl)}`);
+    } catch(e) {}
+  }
+
+  if (!ids.length) {
+    status.textContent='❌ Keine Bilder gefunden. Ordner öffentlich?';
+    return;
+  }
+
+  // Versuche verschiedene URL-Formate für Google Drive Bilder
+  state.gdrivePhotos = ids.map(fileId => 
+    `https://lh3.googleusercontent.com/d/${fileId}`
+  );
+  state.gdriveId = id;
+  saveState();
+  buildSlides();
+  startSS();
+  status.textContent = `✓ ${ids.length} Fotos geladen!`;
 }
 
 // MODALS
@@ -921,7 +1001,7 @@ async function spPoll() {
 
     if (r.status === 204 || r.status === 404 || r.status === 403) {
       document.getElementById('sp-title').textContent = 'Nichts läuft gerade';
-      document.getElementById('sp-artist').textContent = 'Spotify Free: eingeschränkt';
+      document.getElementById('sp-artist').textContent = 'Warte auf Wiedergabe…';
       document.getElementById('sp-cover').innerHTML = '🎵';
       document.getElementById('sp-prog').style.width = '0%';
       return;
